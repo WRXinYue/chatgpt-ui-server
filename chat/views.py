@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # 聊天相关操作的视图
 class SettingViewSet(viewsets.ModelViewSet):
     serializer_class = SettingSerializer
+    # 认证
     # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -49,6 +50,7 @@ class SettingViewSet(viewsets.ModelViewSet):
         return Setting.objects.filter(name__in=available_names)
 
     def http_method_not_allowed(self, request, *args, **kwargs):
+        # 如果请求方法不是 GET 则返回 405 状态码
         if request.method != 'GET':
             return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
         return super().http_method_not_allowed(request, *args, **kwargs)
@@ -56,12 +58,16 @@ class SettingViewSet(viewsets.ModelViewSet):
 
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
+    # JWT 认证
     # authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    # 获取查询集的方法
     def get_queryset(self):
+        # 返回当前用户的对话并按创建时间降序排列
         return Conversation.objects.filter(user=self.request.user).order_by('-created_at')
 
+    # 添加一个用于删除所有对话的自定义操作，返回 204 状态码，表示删除成功
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         queryset = self.filter_queryset(self.get_queryset())
@@ -72,11 +78,15 @@ class ConversationViewSet(viewsets.ModelViewSet):
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     # authentication_classes = [JWTAuthentication]
+    # 使用 JWT 认证
     permission_classes = [IsAuthenticated]
+    # 预设查询集
     # queryset = Message.objects.all()
 
     def get_queryset(self):
+        # 返回当前用户的消息并按创建时间降序排列
         queryset = Message.objects.filter(user=self.request.user).order_by('-created_at')
+        # 获取请求参数中的 conversationId
         conversationId = self.request.query_params.get('conversationId')
         if conversationId:
             queryset = queryset.filter(conversation_id=conversationId).order_by('created_at')

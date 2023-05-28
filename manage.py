@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+# Django的命令行工具，用于管理任务
+
 import os
 import sys
 
 
 def main():
-    """Run administrative tasks."""
+    """运行管理任务"""
+    # 设置默认的Django设置模块
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'chatgpt_ui_server.settings')
     try:
         from django.core.management import execute_from_command_line
