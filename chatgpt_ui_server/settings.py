@@ -17,24 +17,33 @@ import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
+# 加载环境变量
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# 构建项目内的路径，例如：BASE_DIR / 'subdir'
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
+# 快速启动开发设置 - 不适用于生产环境
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
+# 参见 https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# 安全警告：在生产环境中保密 SECRET_KEY！
 SECRET_KEY = 'django-insecure-__9p!i2^udts*l==hl)+6=!fi872f3ec(n%(^f-!6i$o5+7#ar'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', False) == 'True'
 
+# 允许的主机
 ALLOWED_HOSTS = ['*']
 
+# 从环境变量获取应用域名，默认为 'localhost:9000'
 app_domains = os.getenv('APP_DOMAIN', 'localhost:9000').split(',')
+
+# 设置 CSRF 可信任源
 CSRF_TRUSTED_ORIGINS = []
 for app_domain in app_domains:
     CSRF_TRUSTED_ORIGINS.append('http://' + app_domain)
