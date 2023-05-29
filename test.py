@@ -8,16 +8,17 @@ from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
-api_key = "sk-peYuSGE12SKtWtDH9hxx9ZztJv4Fn4ADDKO5AjVmLOI7CNgw"
 
 # 设置页面宽度为较宽的布局
 st.set_page_config(layout="wide")
-api_base = "https://api.chatanywhere.com.cn/v1"
-openai.api_base = "https://api.chatanywhere.com.cn/v1"
-default_api_url = openai.api_base
-print("Default API URL:", default_api_url)
-# Set the environment variable OPENAI_API_BASE
-# os.environ["OPENAI_API_BASE"] = OPENAI_API_BASE
+
+# 设置环境变量
+os.environ["OPENAI_API_KEY"] = "sk-peYuSGE12SKtWtDH9hxx9ZztJv4Fn4ADDKO5AjVmLOI7CNgw"
+os.environ["OPENAI_API_BASE"] = "https://api.chatanywhere.com.cn/v1"
+
+# 从环境变量中获取 API 密钥和基础 URL
+openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_base = os.getenv("OPENAI_API_BASE")
 
 def analyze_resume(jd, resume, options):
     """
@@ -59,14 +60,14 @@ def analyze_resume(jd, resume, options):
     return df
 
 def ask_openAI(question):
-    # 使用OpenAI API获取答案
+    # 使用OpenAI Completion获取答案，详情请参考：https://platform.openai.com/docs/api-reference/completions/create?lang=python
     response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=question,
-        max_tokens=400,
-        n=1,
-        stop=None,
-        temperature=0,
+        engine="text-davinci-003",      # 模型
+        prompt=question,                # 提出的问题字符串
+        max_tokens=400,                 # 生成答案的最大令牌数
+        n=1,                            # 生成答案数量
+        stop=None,                      # 在遇到指定字符时停止生成答案，None表示不需要停止条件
+        temperature=0,                  # 生成答案的随机性
     )
     return response.choices[0].text.strip()
 
@@ -83,7 +84,7 @@ def analyze_str(resume, options):
     chunks = text_splitter.split_text(resume)
 
     # 创建一个 OpenAi 嵌入，用于生成文本向量
-    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+    embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
 
     # 使用 FAISS 库从文本块创建一个知识库
     knowledge_base = FAISS.from_texts(chunks, embeddings)
@@ -97,23 +98,36 @@ def analyze_str(resume, options):
     option_status = st.empty()
 
     for i, option in tqdm(enumerate(options), desc="信息抓取中", unit="选项", ncols=100):
-        #  询问应聘者特定信息
+        # 询问应聘者特定信息
         question = f"这个应聘者的{option}是什么，请精简返回答案，最多不超过250字，如果查找不到，则返回'未提供'"
 
         # 使用知识库进行相似性搜索，找到与问题相关的文档
         docs = knowledge_base.similarity_search(question)
 
-        # 创建OpenAI对象并设置参数，包括 API密钥、温度、模型名称和最大令牌数
-        llm = OpenAI(openai_api_key=api_key, openai_api_base=api_base, temperature=0.3, model_name="text-davinci-003", max_tokens="2000")
+        # 创建OpenAI对象并设置参数，包括 API密钥、温度?、模型名称和最大令牌数
+        llm = OpenAI(
+            openai_api_key=openai.api_key,
+            # openai_api_base=api_base,
+            temperature=0.3,
+            model_name="gpt-3.5-turbo-0301",
+            max_tokens="2000"
+        )
+
+        # 加载问答链（load_qa_chain）并运行：将输入文档和问题传递给问答链，获得回答
         chain = load_qa_chain(llm, chain_type="stuff")
-        response = chain.run(input_documents=docs, question=question )
+        response = chain.run(input_documents=docs, question=question)
+
+        # 将回答存储在 DataFrame 数据中
         df_data[i]['value'] = response
+
+        # 更新状态信息，显示正在查找的选项
         option_status.text(f"正在查找信息：{option}")
 
         # 更新进度条
         progress = (i + 1) / len(options)
         progress_bar.progress(progress)
 
+    # 根据收集到的数据创建一个 DataFrame 对象
     df = pd.DataFrame(df_data)
     st.success("简历要素已获取")
     return df
