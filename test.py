@@ -8,16 +8,12 @@ from langchain.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
-# import my_key = ""
-my_key = "sk-peYuSGE12SKtWtDH9hxx9ZztJv4Fn4ADDKO5AjVmLOI7CNgw"
+api_key = "sk-peYuSGE12SKtWtDH9hxx9ZztJv4Fn4ADDKO5AjVmLOI7CNgw"
 
 # 设置页面宽度为较宽的布局
 st.set_page_config(layout="wide")
-
-# OPENAI_API_BASE = "https://api.chatanywhere.com.cn/v1"
-
+api_base = "https://api.chatanywhere.com.cn/v1"
 openai.api_base = "https://api.chatanywhere.com.cn/v1"
-
 default_api_url = openai.api_base
 print("Default API URL:", default_api_url)
 # Set the environment variable OPENAI_API_BASE
@@ -82,24 +78,33 @@ def analyze_str(resume, options):
         chunk_overlap=100,      # 块重叠
         length_function=len     # 长度
     )
+
+    # 使用文本分割器将简历分割成多个块
     chunks = text_splitter.split_text(resume)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=my_key)
+    # 创建一个 OpenAi 嵌入，用于生成文本向量
+    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+
+    # 使用 FAISS 库从文本块创建一个知识库
     knowledge_base = FAISS.from_texts(chunks, embeddings)
 
+    # 初始化DataFrame 的数据，包括选项名称和值 (初始为空列表)
     df_data = [{'option': option, 'value': []} for option in options]
     st.write("信息抓取")
 
-    # 创建进度条和空元素
+    # 创建进度条和空元素，用于显示处理过程中的状态信息
     progress_bar = st.progress(0)
     option_status = st.empty()
 
     for i, option in tqdm(enumerate(options), desc="信息抓取中", unit="选项", ncols=100):
+        #  询问应聘者特定信息
         question = f"这个应聘者的{option}是什么，请精简返回答案，最多不超过250字，如果查找不到，则返回'未提供'"
+
+        # 使用知识库进行相似性搜索，找到与问题相关的文档
         docs = knowledge_base.similarity_search(question)
 
-        # 创建OpenAI对象
-        llm = OpenAI(openai_api_key=my_key, temperature=0.3, model_name="text-davinci-003", max_tokens="2000")
+        # 创建OpenAI对象并设置参数，包括 API密钥、温度、模型名称和最大令牌数
+        llm = OpenAI(openai_api_key=api_key, openai_api_base=api_base, temperature=0.3, model_name="text-davinci-003", max_tokens="2000")
         chain = load_qa_chain(llm, chain_type="stuff")
         response = chain.run(input_documents=docs, question=question )
         df_data[i]['value'] = response
