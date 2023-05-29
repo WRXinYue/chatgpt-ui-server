@@ -14,7 +14,6 @@ my_key = "sk-peYuSGE12SKtWtDH9hxx9ZztJv4Fn4ADDKO5AjVmLOI7CNgw"
 # 设置页面宽度为较宽的布局
 st.set_page_config(layout="wide")
 
-# Add your new API URL here
 # OPENAI_API_BASE = "https://api.chatanywhere.com.cn/v1"
 
 openai.api_base = "https://api.chatanywhere.com.cn/v1"
@@ -25,22 +24,48 @@ print("Default API URL:", default_api_url)
 # os.environ["OPENAI_API_BASE"] = OPENAI_API_BASE
 
 def analyze_resume(jd, resume, options):
+    """
+    通过对输入的简历进行综合分析，评估候选人与给定职位的匹配程度，并返回概要和得分。
+
+    Args:
+        jd (str): 职位描述,职位要求
+        resume (str): 候选人简历。
+        options (dict): 分析选项，例如过滤条件或其他设置。
+
+    Returns:
+        DataFrame: 包含简历综合概要和匹配得分的 DataFrame。
+    """
+
+    # 进行简历分析
     df = analyze_str(resume, options)
+
+    # 进行数据处理：如果数据类型为列表，则将转换为以逗号分割的字符串；否则不变
     df_string = df.applymap(lambda x: ', '.join(x) if isinstance(x, list) else x).to_string(index=False)
     st.write("OpenAI综合分析..")
+
+    # 构造一个概要问题字符串，内容包括职位要求和简历概要。然后调用 ask_openAI 函数向 OpenAI 请求概要信息。
     summary_question = f"职位要求是：{{{jd}}}" + f"简历概要是：{{{df_string}}}" + "，请直接返回该应聘岗位候选人匹配度概要（控制在200字以内）;'"
     summary = ask_openAI(summary_question)
-    df.loc[len(df)] = ['综合概要', summary]
-    extra_info = "打分要求：国内top10大学+3分，985大学+2分，211大学+1分，头部企业经历+2分，知名企业+1分，海外背景+3分，外企背景+1分。 "
-    score_question = f"职位要求是：{{{jd}}}" + f"简历概要是：{{{df.to_string(index=False)}}}" + "，请直接返回该应聘岗位候选人的匹配分数（0-100），请精确打分以方便其他候选人对比排序，'" + extra_info
-    score = ask_openAI(score_question)
-    df.loc[len(df)] = ['匹配得分', score]
 
+    # 将概要信息添加到 df DataFrame 中
+    df.loc[len(df)] = ['综合概要', summary]
+
+    # 设置额外的打分要求说明
+    extra_info = "打分要求：国内top10大学+3分，985大学+2分，211大学+1分，头部企业经历+2分，知名企业+1分，海外背景+3分，外企背景+1分。 "
+
+    # 构建一个评分问题字符串，内容包括职位要求、简历概要以及打分要求说明。然后调用 ask_openAI 函数向OpenAI请求候选人的匹配分数
+    score_question = f"职位要求是：{{{jd}}}" + f"简历概要是：{{{df.to_string(index=False)}}}" + \
+                     "，请直接返回该应聘岗位候选人的匹配分数（0-100），请精确打分以方便其他候选人对比排序，'" + extra_info
+    score = ask_openAI(score_question)
+
+    # 将匹配得分添加到 df DataFrame 中
+    df.loc[len(df)] = ['匹配得分', score]
     return df
 
 def ask_openAI(question):
+    # 使用OpenAI API获取答案
     response = openai.Completion.create(
-        engine="gpt-3.5-turbo-0301",
+        engine="text-davinci-003",
         prompt=question,
         max_tokens=400,
         n=1,
@@ -50,11 +75,12 @@ def ask_openAI(question):
     return response.choices[0].text.strip()
 
 def analyze_str(resume, options):
+    # 创建一个文本切割器对象
     text_splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=600,
-        chunk_overlap=100,
-        length_function=len
+        separator="\n",         # 换行符
+        chunk_size=600,         # 块大小
+        chunk_overlap=100,      # 块重叠
+        length_function=len     # 长度
     )
     chunks = text_splitter.split_text(resume)
 
@@ -72,8 +98,8 @@ def analyze_str(resume, options):
         question = f"这个应聘者的{option}是什么，请精简返回答案，最多不超过250字，如果查找不到，则返回'未提供'"
         docs = knowledge_base.similarity_search(question)
 
-        # Create the OpenAI object
-        llm = OpenAI(openai_api_key=my_key, temperature=0.3, model_name="gpt-3.5-turbo-0301", max_tokens="2000")
+        # 创建OpenAI对象
+        llm = OpenAI(openai_api_key=my_key, temperature=0.3, model_name="text-davinci-003", max_tokens="2000")
         chain = load_qa_chain(llm, chain_type="stuff")
         response = chain.run(input_documents=docs, question=question )
         df_data[i]['value'] = response
